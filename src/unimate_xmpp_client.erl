@@ -46,7 +46,6 @@ send_groupchat(Msg, Jid) ->
 
 init([]) ->
   %% TODO: Make exmpp app work with rebar
-  application:start(exmpp),
   %% {ok, User} = application:get_env(user),
   %% {ok, Password} = application:get_env(password),
   %% {ok, Resource} = application:get_env(resource),

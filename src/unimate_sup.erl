@@ -1,4 +1,3 @@
-
 -module(unimate_sup).
 
 -behaviour(supervisor).
@@ -24,5 +23,6 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
-
+  TCPServer = ?CHILD(unimate_tcp_server, worker),
+  XMPPClient = ?CHILD(unimate_xmpp_client, worker),
+  {ok, { {one_for_one, 5, 10}, [XMPPClient, TCPServer]} }.

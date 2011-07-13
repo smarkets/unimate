@@ -1,0 +1,12 @@
+{application, unimate,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { unimate_app, []}},
+  {env, []}
+ ]}.

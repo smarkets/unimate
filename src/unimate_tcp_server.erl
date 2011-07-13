@@ -20,7 +20,7 @@ sock_opts() ->
   ?SOCKET_OPTS.
 
 new_connection(Sock, State) ->
-  P = spawn(fun() -> unimate_command2:handle(Sock) end),
+  P = spawn(fun() -> unimate_command:handle(Sock) end),
   gen_tcp:controlling_process(Sock, P),
   {ok, State}.
 

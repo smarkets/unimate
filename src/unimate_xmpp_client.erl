@@ -18,7 +18,8 @@
 -record(state, {session,
                 jid :: #jid{},
                 broadcast_room_jid :: #jid{},
-                rooms = [] :: [ #jid{} ]
+                rooms = [] :: [ #jid{} ],
+                conference_server :: string()
                }).
 
 %%%===================================================================
@@ -45,36 +46,29 @@ send_groupchat(Msg, Jid) ->
 %%%===================================================================
 
 init([]) ->
-  %% TODO: Make exmpp app work with rebar
-  %% {ok, User} = application:get_env(user),
-  %% {ok, Password} = application:get_env(password),
-  %% {ok, Resource} = application:get_env(resource),
-  %% {ok, Server} = application:get_env(server),
-  %% {ok, Port} = application:get_env(port),
-  Password = "K6tKlF3kG7",
-  JidBin = <<"echo@derbrain.com/work">>,
-  Port = 5222,
-  Rooms = ["test@conference.derbrain.com"],
-  BroadCastRoom = "test@conference.derbrain.com",
-
+  {ok, Port} = application:get_env(jabber_port),
+  {ok, Server} = application:get_env(jabber_server),
+  {ok, User} = application:get_env(jabber_user),
+  {ok, Password} = application:get_env(jabber_password),
+  {ok, ConferenceServer} = application:get_env(conference_server),
+  {ok, BroadcastRoom} = application:get_env(broadcast_room),
+  {ok, Rooms} = application:get_env(rooms),
   Session = exmpp_session:start(),
-  Jid = exmpp_jid:parse(JidBin),
+  Jid = exmpp_jid:make(User, Server),
   exmpp_session:auth_basic_digest(Session, Jid, Password),
-  {ok, _StreamId} = exmpp_session:connect_TCP(Session, exmpp_jid:domain_as_list(Jid), Port),
+  {ok, _StreamId} = exmpp_session:connect_TCP(Session, Server, Port),
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),
-
-  BroadCastRoomJid = exmpp_jid:parse(BroadCastRoom),
-
+  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer, User),
   State1 = #state{session=Session,
                   jid=Jid,
+                  conference_server=ConferenceServer,
                   broadcast_room_jid=BroadCastRoomJid},
-
   %% Connect to all rooms in our config
   State2 = lists:foldl(
             fun(R, S) ->
-                J = exmpp_jid:parse(R),
+                J = exmpp_jid:make(R, ConferenceServer, User),
                 join_room(J, S)
             end,
             State1,

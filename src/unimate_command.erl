@@ -31,18 +31,6 @@ exec_command(Data) ->
   C = existing_command(C0),
   apply(?MODULE, C, R).
 
-%% exec_command(<<>>) ->
-%%   ok;
-%% exec_command(Data) ->
-%%   case binary:split(Data, <<" ">>) of
-%%     [C0, R] ->
-%%       C = existing_command(C0),
-%%       ?MODULE:C(R);
-%%     [C0] ->
-%%       C = existing_command(C0),
-%%       ?MODULE:C()
-%%   end.
-
 existing_command(C0) when is_binary(C0) ->
   try
     C = list_to_existing_atom(string:to_lower(binary_to_list(C0))),
@@ -59,11 +47,15 @@ help(_Socket) ->
 broadcast(Data) ->
   case binary:split(Data, <<" ">>) of
     [Room, Rest] ->
-      case re:run(Room, <<"([^ ]+@[^ ]+)">>, [{capture, all_but_first, binary}]) of
-        {match, [Jid]} ->
-          unimate_xmpp_client:send_groupchat(Rest, Jid);
-        _ ->
-          unimate_xmpp_client:send_groupchat(Rest)
+      try
+        case unimate_xmpp_client:is_room(Room) of
+          true ->
+            unimate_xmpp_client:send_groupchat(Rest, Room);
+          false ->
+            unimate_xmpp_client:send_groupchat(Data)
+        end
+      catch _:_ ->
+          unimate_xmpp_client:send_groupchat(Data)
       end;
     _ ->
       unimate_xmpp_client:send_groupchat(Data)

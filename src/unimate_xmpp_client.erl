@@ -7,7 +7,7 @@
 -include_lib("exmpp/include/exmpp_jid.hrl").
 
 %% API
--export([start_link/0, send/1, send/2, send_groupchat/1, send_groupchat/2]).
+-export([start_link/0, send_groupchat/1, send_groupchat/2, is_room/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -18,8 +18,7 @@
 -record(state, {session,
                 jid :: #jid{},
                 broadcast_room_jid :: #jid{},
-                rooms = [] :: [ #jid{} ],
-                conference_server :: string()
+                rooms = [] :: [ {binary(), #jid{}} ]
                }).
 
 %%%===================================================================
@@ -29,17 +28,17 @@
 start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-send(Msg) ->
-  gen_server:call(?SERVER, {send, Msg}).
-
-send(Msg, Jid) ->
-  gen_server:call(?SERVER, {send, Msg, Jid}).
-
-send_groupchat(Msg) ->
+-spec send_groupchat(binary()) -> ok.
+send_groupchat(Msg) when is_binary(Msg) ->
   gen_server:call(?SERVER, {send_groupchat, Msg}).
 
-send_groupchat(Msg, Jid) ->
-  gen_server:call(?SERVER, {send_groupchat, Msg, Jid}).
+-spec send_groupchat(binary(), binary()) -> ok.
+send_groupchat(Msg, Room) when is_binary(Msg) andalso is_binary(Room) ->
+  gen_server:call(?SERVER, {send_groupchat, Msg, Room}).
+
+-spec is_room(binary()) -> boolean().
+is_room(Room) when is_binary(Room) ->
+  gen_server:call(?SERVER, {is_room, Room}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -60,15 +59,14 @@ init([]) ->
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),
-  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer, User),
+  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer),
   State1 = #state{session=Session,
                   jid=Jid,
-                  conference_server=ConferenceServer,
                   broadcast_room_jid=BroadCastRoomJid},
   %% Connect to all rooms in our config
   State2 = lists:foldl(
             fun(R, S) ->
-                J = exmpp_jid:make(R, ConferenceServer, User),
+                J = exmpp_jid:make(R, ConferenceServer),
                 join_room(J, S)
             end,
             State1,
@@ -76,18 +74,18 @@ init([]) ->
   {ok, State2}.
 
 
-handle_call({send, Msg}, _From, State) ->
-  State2 = send_int(Msg, <<"puzza007@derbrain.com">>, State),
-  {reply, ok, State2};
-handle_call({send, Msg, JidBin}, _From, State) ->
-  State2 = send_int(Msg, JidBin, State),
-  {reply, ok, State2};
-handle_call({send_groupchat, Msg}, _From, State=#state{broadcast_room_jid=Jid}) ->
-  State2 = send_groupchat_int(Msg, Jid, State),
-  {reply, ok, State2};
-handle_call({send_groupchat, Msg, JidBin}, _From, State) ->
-  State2 = send_groupchat_int(Msg, JidBin, State),
-  {reply, ok, State2}.
+%% Broadcast
+handle_call({send_groupchat, Msg}, _From,
+            State=#state{jid=FromJid, broadcast_room_jid=ToJid}) ->
+  send_groupchat_msg_to_jid(Msg, FromJid, ToJid, State),
+  {reply, ok, State};
+%% To room
+handle_call({send_groupchat, Msg, Room}, _From, State) ->
+  ok = send_groupchat_int(Msg, Room, State),
+  {reply, ok, State};
+handle_call({is_room, Room}, _From, State) ->
+  Reply = (get_room(Room, State) =/= not_found),
+  {reply, Reply, State}.
 
 
 handle_cast(_Msg, State) ->
@@ -109,43 +107,31 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-send_int(Msg, ToJidBin, State) when is_binary(ToJidBin) orelse is_list(ToJidBin) ->
-  ToJid = exmpp_jid:parse(ToJidBin),
-  send_int(Msg, ToJid, State);
+-spec send_groupchat_int(binary(), binary(), #state{}) -> ok.
+send_groupchat_int(Msg, Room, State=#state{jid=Jid, broadcast_room_jid=BJid}) ->
+  ToJid =
+    case get_room(Room, State) of
+      not_found ->
+        BJid;
+      RJid ->
+        RJid
+  end,
+  send_groupchat_msg_to_jid(Msg, Jid, ToJid, State).
 
-send_int(Msg, ToJid = #jid{}, State = #state{session = Session, jid = Jid}) ->
-  Packet = exmpp_stanza:set_sender(
-             exmpp_stanza:set_recipient(
-               exmpp_message:chat(Msg),
-               ToJid),
-             Jid),
-  exmpp_session:send_packet(Session, Packet),
-  State.
-
-
-send_groupchat_int(Msg, JidBin, State) when is_binary(JidBin) orelse is_list(JidBin) ->
-  Jid = exmpp_jid:parse(JidBin),
-  send_groupchat_int(Msg, Jid, State);
-
-send_groupchat_int(Msg, ToJid = #jid{},
-                   State = #state{session = Session, jid = Jid, rooms = Rooms}) ->
-  State2 =
-    case lists:member(ToJid, Rooms) of
-      true -> State;
-      false -> join_room(ToJid, State)
-    end,
+-spec send_groupchat_msg_to_jid(binary(), #jid{}, #jid{}, #state{}) -> ok.
+send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
   Packet = exmpp_stanza:set_sender(
              exmpp_stanza:set_recipient(
                exmpp_message:groupchat(Msg),
                ToJid),
-             Jid),
+             FromJid),
   exmpp_session:send_packet(Session, Packet),
-  State2.
+  ok.
 
-join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid, rooms=Rooms}) ->
+join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}) ->
   Packet = room_presence(Jid, RoomJid),
   exmpp_session:send_packet(Session, Packet),
-  State#state{rooms=[RoomJid|Rooms]}.
+  add_room(RoomJid, State).
 
 room_presence(Jid = #jid{}, RoomJid = #jid{}) ->
   User = exmpp_jid:node(Jid),
@@ -154,3 +140,13 @@ room_presence(Jid = #jid{}, RoomJid = #jid{}) ->
   XMLNSAttr = #xmlattr{name= <<"xmlns">>, value= <<"http://jabber.org/protocol/muc">>},
   XMLNS = #xmlel{name=x, attrs=[XMLNSAttr]},
   #xmlel{name=presence, attrs=[To], children=[XMLNS]}.
+
+-spec add_room(#jid{}, #state{}) -> #state{}.
+add_room(Jid, State=#state{rooms=Rooms}) ->
+  Name = exmpp_jid:node(Jid),
+  Rooms2 = [{Name, Jid}|Rooms],
+  State#state{rooms=Rooms2}.
+
+-spec get_room(binary(), #state{}) -> #jid{} | not_found.
+get_room(Room, #state{rooms=Rooms}) ->
+  proplists:get_value(Room, Rooms, not_found).

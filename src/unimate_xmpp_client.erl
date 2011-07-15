@@ -1,3 +1,4 @@
+%% -*- erlang-indent-level: 2 -*-
 -module(unimate_xmpp_client).
 
 -behaviour(gen_server).

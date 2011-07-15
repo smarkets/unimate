@@ -54,6 +54,11 @@ init([]) ->
       {ok, ServerIp1} -> ServerIp1;
       undefined       -> Server
     end,
+  UseSsl =
+    case application:get_env(jabber_server_tls) of
+      {ok, true} -> true;
+      _          -> false
+    end,
   {ok, User} = application:get_env(jabber_user),
   {ok, Resource} = application:get_env(jabber_resource),
   {ok, Password} = application:get_env(jabber_password),
@@ -63,7 +68,13 @@ init([]) ->
   Session = exmpp_session:start(),
   Jid = exmpp_jid:make(User, Server, Resource),
   exmpp_session:auth_basic_digest(Session, Jid, Password),
-  {ok, _StreamId} = exmpp_session:connect_TCP(Session, ServerIp, Port),
+  {ok, _StreamId} =
+    case UseSsl of
+      true ->
+        exmpp_session:connect_SSL(Session, ServerIp, Port);
+      false ->
+        exmpp_session:connect_TCP(Session, ServerIp, Port)
+    end,
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),

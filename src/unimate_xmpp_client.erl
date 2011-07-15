@@ -169,7 +169,7 @@ send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
   ok.
 
 -spec join_room(#jid{}, #state{}, binary()) -> #state{}.
-join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}, Nick) ->
+join_room(RoomJid = #jid{}, State=#state{session=Session}, Nick) ->
   Packet = room_presence(RoomJid, Nick),
   exmpp_session:send_packet(Session, Packet),
   add_room(RoomJid, State).

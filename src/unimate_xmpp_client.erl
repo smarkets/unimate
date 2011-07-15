@@ -62,8 +62,8 @@ init([]) ->
   {ok, User} = application:get_env(jabber_user),
   Nick =
     case application:get_env(jabber_nickname) of
-      {ok, Nick1} -> Nick1;
-      undefined   -> User
+      {ok, Nick1} -> list_to_binary(Nick1);
+      undefined   -> list_to_binary(User)
     end,
   {ok, Resource} = application:get_env(jabber_resource),
   {ok, Password} = application:get_env(jabber_password),

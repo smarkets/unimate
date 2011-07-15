@@ -95,6 +95,21 @@ handle_cast(_Msg, State) ->
   {stop, unhandled_cast, State}.
 
 
+handle_info(#received_packet{packet_type=message,
+                               type_attr="chat",
+                               raw_packet=Raw},
+            State=#state{jid=Jid}) ->
+  case exmpp_message:get_body(Raw) of
+    undefined -> ok;
+    Msg ->
+      OurJidBin = exmpp_jid:to_binary(Jid),
+      case exmpp_xml:get_attribute_as_binary(Raw, <<"from">>, <<"unknown">>) of
+        OurJidBin -> ok;
+        From ->
+          error_logger:info_msg("~s: ~s", [From, Msg])
+      end
+  end,
+  {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
 

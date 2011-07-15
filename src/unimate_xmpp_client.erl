@@ -130,11 +130,13 @@ send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
   exmpp_session:send_packet(Session, Packet),
   ok.
 
+-spec join_room(#jid{}, #state{}) -> #state{}.
 join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}) ->
   Packet = room_presence(Jid, RoomJid),
   exmpp_session:send_packet(Session, Packet),
   add_room(RoomJid, State).
 
+-spec room_presence(#jid{}, #jid{}) -> #xmlel{}.
 room_presence(Jid = #jid{}, RoomJid = #jid{}) ->
   User = exmpp_jid:node(Jid),
   RoomBin = exmpp_jid:to_binary(RoomJid),

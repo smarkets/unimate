@@ -8,6 +8,7 @@
 
 -define(COMMANDS, [help, broadcast, quit, serverinfo]).
 
+-spec handle(gen_tcp:socket()) -> binary().
 handle(Sock) ->
    handle(Sock, <<>>).
 
@@ -20,6 +21,7 @@ handle(Sock, Buf) ->
          pop_commands(Sock, Buf)
    end.
 
+-spec pop_commands(gen_tcp:socket(), binary()) -> binary().
 pop_commands(Sock, Buf) ->
    case binary:split(Buf, ?SEP) of
      [<<>>,<<>>] ->
@@ -31,6 +33,7 @@ pop_commands(Sock, Buf) ->
        pop_commands(Sock, R)
    end.
 
+-spec exec(gen_tcp:socket(), binary()) -> ok.
 exec(Sock, Data) ->
   case binary:split(Data, <<" ">>) of
     [C0, R] ->
@@ -41,15 +44,17 @@ exec(Sock, Data) ->
       ?MODULE:C(Sock)
   end.
 
+-spec command(binary()) -> atom().
 command(C0) when is_binary(C0) ->
   try
     C = list_to_existing_atom(string:to_lower(binary_to_list(C0))),
     true = lists:member(C, ?COMMANDS),
     C
   catch _:_ ->
-      error_logger:info_msg("Unknown command ~s", [C0])
+      throw({unknown_command, C0})
   end.
 
+-spec help(gen_tcp:socket()) -> ok.
 help(Sock) ->
   Help = ["",
           "commands:",
@@ -58,8 +63,9 @@ help(Sock) ->
           "    broadcast <chan>? <msg>",
           "    serverinfo",
           ""],
-  gen_tcp:send(Sock, string:join(Help, "\n")).
+  ok = gen_tcp:send(Sock, string:join(Help, "\n")).
 
+-spec broadcast(gen_tcp:socket(), binary()) -> ok.
 broadcast(_Sock, Data) ->
   case binary:split(Data, <<" ">>) of
     [Room, Rest] ->
@@ -71,9 +77,11 @@ broadcast(_Sock, Data) ->
       end;
     _ ->
       unimate_xmpp_client:send_groupchat(Data)
-  end.
+  end,
+  ok.
 
+-spec serverinfo(gen_tcp:socket()) -> ok.
 serverinfo(Sock) ->
   I = io_lib:format("~p\n~p\n",
                     [erlang:memory(), application:loaded_applications()]),
-  gen_tcp:send(Sock, I).
+  ok = gen_tcp:send(Sock, I).

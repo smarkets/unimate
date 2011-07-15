@@ -1,7 +1,7 @@
 {application, unimate,
  [
   {description, "Unimate Jabber Bot"},
-  {vsn, "1"},
+  {vsn, "20110715"},
   {registered, []},
   {applications, [
                   kernel,

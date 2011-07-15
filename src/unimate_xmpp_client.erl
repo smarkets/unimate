@@ -18,6 +18,7 @@
 -record(state, {session,
                 jid :: #jid{},
                 broadcast_room_jid :: #jid{},
+                conference_server :: string(),
                 rooms = [] :: [ {binary(), #jid{}} ]
                }).
 
@@ -62,6 +63,7 @@ init([]) ->
   BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer),
   State1 = #state{session=Session,
                   jid=Jid,
+                  conference_server=ConferenceServer,
                   broadcast_room_jid=BroadCastRoomJid},
   %% Connect to all rooms in our config
   State2 = lists:foldl(

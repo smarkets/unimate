@@ -83,7 +83,7 @@ init([]) ->
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),
-  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer, Nick),
+  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer),
   State1 = #state{session=Session,
                   jid=Jid,
                   conference_server=ConferenceServer,
@@ -91,8 +91,8 @@ init([]) ->
   %% Connect to all rooms in our config
   State2 = lists:foldl(
             fun(R, S) ->
-                J = exmpp_jid:make(R, ConferenceServer, Nick),
-                join_room(J, S)
+                J = exmpp_jid:make(R, ConferenceServer),
+                join_room(J, S, Nick)
             end,
             State1,
             Rooms),
@@ -168,17 +168,17 @@ send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
   exmpp_session:send_packet(Session, Packet),
   ok.
 
--spec join_room(#jid{}, #state{}) -> #state{}.
-join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}) ->
-  Packet = room_presence(Jid, RoomJid),
+-spec join_room(#jid{}, #state{}, binary()) -> #state{}.
+join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}, Nick) ->
+  Packet = room_presence(Jid, RoomJid, Nick),
   exmpp_session:send_packet(Session, Packet),
   add_room(RoomJid, State).
 
--spec room_presence(#jid{}, #jid{}) -> #xmlel{}.
-room_presence(Jid = #jid{}, RoomJid = #jid{}) ->
+-spec room_presence(#jid{}, #jid{}, binary()) -> #xmlel{}.
+room_presence(Jid = #jid{}, RoomJid = #jid{}, Nick) ->
   User = exmpp_jid:node(Jid),
   RoomBin = exmpp_jid:to_binary(RoomJid),
-  To = #xmlattr{name = <<"to">>, value = <<RoomBin/binary,"/",User/binary>>},
+  To = #xmlattr{name = <<"to">>, value = <<RoomBin/binary,"/",Nick/binary>>},
   XMLNSAttr = #xmlattr{name= <<"xmlns">>, value= <<"http://jabber.org/protocol/muc">>},
   XMLNS = #xmlel{name=x, attrs=[XMLNSAttr]},
   #xmlel{name=presence, attrs=[To], children=[XMLNS]}.

@@ -63,7 +63,7 @@ init([]) ->
   Session = exmpp_session:start(),
   Jid = exmpp_jid:make(User, Server, Resource),
   exmpp_session:auth_basic_digest(Session, Jid, Password),
-  {ok, _StreamId} = exmpp_session:connect_TCP(Session, Server, Port),
+  {ok, _StreamId} = exmpp_session:connect_TCP(Session, ServerIp, Port),
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),

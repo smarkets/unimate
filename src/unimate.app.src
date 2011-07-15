@@ -1,6 +1,6 @@
 {application, unimate,
  [
-  {description, ""},
+  {description, "Unimate Jabber Bot"},
   {vsn, "1"},
   {registered, []},
   {applications, [

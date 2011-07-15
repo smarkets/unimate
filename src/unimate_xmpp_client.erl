@@ -170,12 +170,12 @@ send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
 
 -spec join_room(#jid{}, #state{}, binary()) -> #state{}.
 join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}, Nick) ->
-  Packet = room_presence(Jid, RoomJid, Nick),
+  Packet = room_presence(RoomJid, Nick),
   exmpp_session:send_packet(Session, Packet),
   add_room(RoomJid, State).
 
--spec room_presence(#jid{}, #jid{}, binary()) -> #xmlel{}.
-room_presence(Jid = #jid{}, RoomJid = #jid{}, Nick) ->
+-spec room_presence(#jid{}, binary()) -> #xmlel{}.
+room_presence(RoomJid = #jid{}, Nick) ->
   RoomBin = exmpp_jid:to_binary(RoomJid),
   To = #xmlattr{name = <<"to">>, value = <<RoomBin/binary,"/",Nick/binary>>},
   XMLNSAttr = #xmlattr{name= <<"xmlns">>, value= <<"http://jabber.org/protocol/muc">>},

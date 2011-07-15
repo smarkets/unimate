@@ -49,6 +49,11 @@ is_room(Room) when is_binary(Room) ->
 init([]) ->
   {ok, Port} = application:get_env(jabber_port),
   {ok, Server} = application:get_env(jabber_server),
+  ServerIp =
+    case application:get_env(jabber_server_ip) of
+      {ok, ServerIp1} -> ServerIp1;
+      undefined       -> Server
+    end,
   {ok, User} = application:get_env(jabber_user),
   {ok, Resource} = application:get_env(jabber_resource),
   {ok, Password} = application:get_env(jabber_password),

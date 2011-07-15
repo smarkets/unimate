@@ -3,4 +3,4 @@ ebin
 erl_crash.dump
 log/
 rel/unimate/
-dev/
+live/

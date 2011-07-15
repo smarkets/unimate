@@ -83,7 +83,7 @@ init([]) ->
   exmpp_session:login(Session),
   Status = exmpp_presence:set_status(exmpp_presence:available(), "Ready"),
   exmpp_session:send_packet(Session, Status),
-  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer),
+  BroadCastRoomJid = exmpp_jid:make(BroadcastRoom, ConferenceServer, Nick),
   State1 = #state{session=Session,
                   jid=Jid,
                   conference_server=ConferenceServer,

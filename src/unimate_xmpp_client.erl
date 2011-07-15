@@ -60,6 +60,11 @@ init([]) ->
       _          -> false
     end,
   {ok, User} = application:get_env(jabber_user),
+  Nick =
+    case application:get_env(jabber_nickname) of
+      {ok, Nick1} -> Nick1;
+      undefined   -> User
+    end,
   {ok, Resource} = application:get_env(jabber_resource),
   {ok, Password} = application:get_env(jabber_password),
   {ok, ConferenceServer} = application:get_env(conference_server),
@@ -86,7 +91,7 @@ init([]) ->
   %% Connect to all rooms in our config
   State2 = lists:foldl(
             fun(R, S) ->
-                J = exmpp_jid:make(R, ConferenceServer),
+                J = exmpp_jid:make(R, ConferenceServer, Nick),
                 join_room(J, S)
             end,
             State1,

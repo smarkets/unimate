@@ -14,7 +14,9 @@
 -record(state, {}).
 
 start_link() ->
-  gen_nb_server:start_link(?MODULE, "127.0.0.1", 10101, []).
+  {ok, IpAddr} = application:get_env(listen_ip),
+  {ok, Port} = application:get_env(listen_port),
+  gen_nb_server:start_link(?MODULE, IpAddr, Port, []).
 
 sock_opts() ->
   ?SOCKET_OPTS.

@@ -26,9 +26,16 @@ rel: deps
 relclean:
 	rm -rf rel/unimate
 
-live:
+live: compile
 	mkdir -p live
 	(cd rel && ../rebar generate target_dir=../live/$@ overlay_vars=vars/$@.config)
 
 liveclean:
 	rm -rf live
+
+dev: compile
+	mkdir -p dev
+	(cd rel && ../rebar generate target_dir=../dev/$@ overlay_vars=vars/$@.config)
+
+devclean:
+	rm -rf dev

@@ -132,6 +132,9 @@ handle_info(#received_packet{packet_type=message,
       end
   end,
   {noreply, State};
+handle_info(Packet = #received_packet{packet_type=presence}, State) ->
+  ok = handle_presence(Packet, State),
+  {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
 
@@ -191,3 +194,19 @@ add_room(Jid, State=#state{rooms=Rooms}) ->
 -spec get_room(binary(), #state{}) -> #jid{} | not_found.
 get_room(Room, #state{rooms=Rooms}) ->
   proplists:get_value(Room, Rooms, not_found).
+
+-spec handle_presence(#received_packet{}, #state{}) -> ok.
+handle_presence(#received_packet{from=From, type_attr="subscribe"},
+                #state{jid=Jid, session=Session}) ->
+  case exmpp_jid:make(From) of
+    Jid ->
+      ok;
+    FromJid ->
+      Subscribed = exmpp_stanza:set_recipient(exmpp_presence:subscribed(), FromJid),
+      exmpp_session:send_packet(Session, Subscribed),
+      Subscribe = exmpp_stanza:set_recipient(exmpp_presence:subscribe(), FromJid),
+      exmpp_session:send_packet(Session, Subscribe),
+      ok
+  end;
+handle_presence(_, _) ->
+  ok.

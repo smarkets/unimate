@@ -176,7 +176,6 @@ join_room(RoomJid = #jid{}, State=#state{session=Session, jid=Jid}, Nick) ->
 
 -spec room_presence(#jid{}, #jid{}, binary()) -> #xmlel{}.
 room_presence(Jid = #jid{}, RoomJid = #jid{}, Nick) ->
-  User = exmpp_jid:node(Jid),
   RoomBin = exmpp_jid:to_binary(RoomJid),
   To = #xmlattr{name = <<"to">>, value = <<RoomBin/binary,"/",Nick/binary>>},
   XMLNSAttr = #xmlattr{name= <<"xmlns">>, value= <<"http://jabber.org/protocol/muc">>},

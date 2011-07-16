@@ -96,6 +96,14 @@ init([]) ->
             end,
             State1,
             Rooms),
+  %% Send an avatar to the server if one exists in our priv dir
+  Filename = filename:join([code:priv_dir(unimate), "avatar.png"]),
+  case file:read_file_info(Filename) of
+    {ok, _} ->
+      AvatarPacket = avatar_packet(Filename, State2),
+      exmpp_session:send_packet(Session, AvatarPacket);
+    _ -> ok
+  end,
   {ok, State2}.
 
 
@@ -210,3 +218,21 @@ handle_presence(#received_packet{from=From, type_attr="subscribe"},
   end;
 handle_presence(_, _) ->
   ok.
+
+-spec avatar_packet(string(), #state{}) -> ok.
+avatar_packet(Filename, #state{jid=Jid}) ->
+  {ok, Bin} = file:read_file(Filename),
+  Base64 = base64:encode(Bin),
+  Id = crypto:sha(Base64),
+  Data0 = exmpp_xml:element('urn:xmpp:avatar:data', data, [], []),
+  Data = exmpp_xml:set_cdata(Data0, Base64),
+  ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
+  Item = exmpp_xml:element(undefined, item, [ItemAttr], [Data]),
+  NodeAttr = exmpp_xml:attribute(<<"node">>, 'urn:xmpp:avatar:data'),
+  Publish = exmpp_xml:element(undefined, publish, [NodeAttr], [Item]),
+  PubSub = exmpp_xml:element('http://jabber.org/protocol/pubsub', pubsub, [], [Publish]),
+  %% Id should be something we generate instead of publish1
+  FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
+  Iq0 = exmpp_iq:set(undefined, PubSub, 'publish1'),
+  Iq = exmpp_xml:set_attribute(Iq0, FromAttr),
+  Iq.

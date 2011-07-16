@@ -223,7 +223,7 @@ handle_presence(_, _) ->
 avatar_packet(Filename, #state{jid=Jid}) ->
   {ok, Bin} = file:read_file(Filename),
   Base64 = base64:encode(Bin),
-  Id = crypto:sha(Base64),
+  Id = hexstring(crypto:sha(Bin)),
   Data0 = exmpp_xml:element('urn:xmpp:avatar:data', data, [], []),
   Data = exmpp_xml:set_cdata(Data0, Base64),
   ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
@@ -236,3 +236,12 @@ avatar_packet(Filename, #state{jid=Jid}) ->
   Iq0 = exmpp_iq:set(undefined, PubSub, 'publish1'),
   Iq = exmpp_xml:set_attribute(Iq0, FromAttr),
   Iq.
+
+hexstring(<<X:128/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~32.16.0b", [X]));
+hexstring(<<X:160/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~40.16.0b", [X]));
+hexstring(<<X:256/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~64.16.0b", [X]));
+hexstring(<<X:512/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~128.16.0b", [X])).

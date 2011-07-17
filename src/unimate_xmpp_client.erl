@@ -224,8 +224,12 @@ send_avatar(Filename, State=#state{session=Session}) ->
       Bytes = byte_size(Bin),
       AvatarPacket = avatar_packet(Id, Base64, State),
       AvatarMetadataPacket = avatar_metadata_packet(Id, Bytes, State),
+      VCardPacket = vcard_packet(Base64, State),
+      VCardPresence = vcard_presence(Id, State),
       exmpp_session:send_packet(Session, AvatarPacket),
       exmpp_session:send_packet(Session, AvatarMetadataPacket),
+      exmpp_session:send_packet(Session, VCardPacket),
+      exmpp_session:send_packet(Session, VCardPresence),
       ok;
     {error, Reason} ->
       error_logger:info_msg("Failed to read avatar: ~p - ~p", [Filename, Reason]),
@@ -258,6 +262,26 @@ publish_element(Item, #state{jid=Jid}) ->
   FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
   Iq0 = exmpp_iq:set(undefined, PubSub, 'publish2'),
   exmpp_xml:set_attribute(Iq0, FromAttr).
+
+-spec vcard_packet(binary(), #state{}) -> #xmlel{}.
+vcard_packet(Base64, #state{jid=Jid}) ->
+  Binval0 = exmpp_xml:element(undefined, 'BINVAL', [], []),
+  Binval = exmpp_xml:set_cdata(Binval0, Base64),
+  Type0 = exmpp_xml:element(undefined, 'TYPE', [], []),
+  Type = exmpp_xml:set_cdata(Type0, <<"image/png">>),
+  Photo = exmpp_xml:element(undefined, 'PHOTO', [], [Type, Binval]),
+  VCard = exmpp_xml:element('vcard-temp', 'vCard', [], [Photo]),
+  FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
+  Iq0 = exmpp_iq:set(undefined, VCard, 'vc1'),
+  exmpp_xml:set_attribute(Iq0, FromAttr).
+
+-spec vcard_presence(binary(), #state{}) -> #xmlel{}.
+vcard_presence(Id, #state{jid=Jid}) ->
+  Photo0 = exmpp_xml:element(undefined, 'photo', [], []),
+  Photo = exmpp_xml:set_cdata(Photo0, Id),
+  X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo0]),
+  Presence0 = exmpp_presence:presence(available, <<"Ready">>),
+  exmpp_xml:set_children(Presence0, [X]).
 
 hexstring(<<X:128/big-unsigned-integer>>) ->
     lists:flatten(io_lib:format("~32.16.0b", [X]));

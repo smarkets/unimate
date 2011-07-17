@@ -221,13 +221,8 @@ send_avatar(Filename, State=#state{session=Session}) ->
       {ok, Bin} = file:read_file(Filename),
       Base64 = base64:encode(Bin),
       Id = hexstring(crypto:sha(Bin)),
-      Bytes = byte_size(Bin),
-      AvatarPacket = avatar_packet(Id, Base64, State),
-      AvatarMetadataPacket = avatar_metadata_packet(Id, Bytes, State),
       VCardPacket = vcard_packet(Base64, State),
       VCardPresence = vcard_presence(Id, State),
-      exmpp_session:send_packet(Session, AvatarPacket),
-      exmpp_session:send_packet(Session, AvatarMetadataPacket),
       exmpp_session:send_packet(Session, VCardPacket),
       exmpp_session:send_packet(Session, VCardPresence),
       ok;
@@ -235,33 +230,6 @@ send_avatar(Filename, State=#state{session=Session}) ->
       error_logger:info_msg("Failed to read avatar: ~p - ~p", [Filename, Reason]),
       ok
   end.
-
--spec avatar_packet(binary(), binary(), #state{}) -> #xmlel{}.
-avatar_packet(Id, Base64, State) ->
-  Data0 = exmpp_xml:element('urn:xmpp:avatar:data', data, [], []),
-  Data = exmpp_xml:set_cdata(Data0, Base64),
-  ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
-  Item = exmpp_xml:element(undefined, item, [ItemAttr], [Data]),
-  publish_element(Item, State).
-
--spec avatar_metadata_packet(binary(), binary(), #state{}) -> #xmlel{}.
-avatar_metadata_packet(Id, Bytes, State) ->
-  BytesAttr = exmpp_xml:attribute(<<"bytes">>, integer_to_list(Bytes)),
-  TypeAttr = exmpp_xml:attribute(<<"type">>, <<"image/png">>),
-  Info = exmpp_xml:element(undefined, info, [BytesAttr, TypeAttr], []),
-  Metadata = exmpp_xml:element('urn:xmpp:avatar:metadata', metadata, [], [Info]), 
-  ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
-  Item = exmpp_xml:element(undefined, item, [ItemAttr], [Metadata]),
-  publish_element(Item, State).
-
--spec publish_element(#xmlel{}, #state{}) -> #xmlel{}.
-publish_element(Item, #state{jid=Jid}) ->
-  NodeAttr = exmpp_xml:attribute(<<"node">>, 'urn:xmpp:avatar:data'),
-  Publish = exmpp_xml:element(undefined, publish, [NodeAttr], [Item]),
-  PubSub = exmpp_xml:element('http://jabber.org/protocol/pubsub', pubsub, [], [Publish]),
-  FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
-  Iq0 = exmpp_iq:set(undefined, PubSub, 'publish2'),
-  exmpp_xml:set_attribute(Iq0, FromAttr).
 
 -spec vcard_packet(binary(), #state{}) -> #xmlel{}.
 vcard_packet(Base64, #state{jid=Jid}) ->
@@ -279,7 +247,7 @@ vcard_packet(Base64, #state{jid=Jid}) ->
 vcard_presence(Id, #state{jid=Jid}) ->
   Photo0 = exmpp_xml:element(undefined, 'photo', [], []),
   Photo = exmpp_xml:set_cdata(Photo0, Id),
-  X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo0]),
+  X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo]),
   Presence0 = exmpp_presence:presence(available, <<"Ready">>),
   exmpp_xml:set_children(Presence0, [X]).
 

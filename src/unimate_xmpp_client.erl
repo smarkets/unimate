@@ -98,12 +98,7 @@ init([]) ->
             Rooms),
   %% Send an avatar to the server if one exists in our priv dir
   Filename = filename:join([code:priv_dir(unimate), "avatar.png"]),
-  case file:read_file_info(Filename) of
-    {ok, _} ->
-      AvatarPacket = avatar_packet(Filename, State2),
-      exmpp_session:send_packet(Session, AvatarPacket);
-    _ -> ok
-  end,
+  send_avatar(Filename, State2),
   {ok, State2}.
 
 
@@ -219,23 +214,50 @@ handle_presence(#received_packet{from=From, type_attr="subscribe"},
 handle_presence(_, _) ->
   ok.
 
--spec avatar_packet(string(), #state{}) -> ok.
-avatar_packet(Filename, #state{jid=Jid}) ->
-  {ok, Bin} = file:read_file(Filename),
-  Base64 = base64:encode(Bin),
-  Id = hexstring(crypto:sha(Bin)),
+-spec send_avatar(string(), #state{}) -> ok.
+send_avatar(Filename, State=#state{session=Session}) ->
+  case file:read_file_info(Filename) of
+    {ok, _} ->
+      {ok, Bin} = file:read_file(Filename),
+      Base64 = base64:encode(Bin),
+      Id = hexstring(crypto:sha(Bin)),
+      Bytes = byte_size(Bin),
+      AvatarPacket = avatar_packet(Id, Base64, State),
+      AvatarMetadataPacket = avatar_metadata_packet(Id, Bytes, State),
+      exmpp_session:send_packet(Session, AvatarPacket),
+      exmpp_session:send_packet(Session, AvatarMetadataPacket),
+      ok;
+    {error, Reason} ->
+      error_logger:info_msg("Failed to read avatar: ~p - ~p", [Filename, Reason]),
+      ok
+  end.
+
+-spec avatar_packet(binary(), binary(), #state{}) -> #xmlel{}.
+avatar_packet(Id, Base64, State) ->
   Data0 = exmpp_xml:element('urn:xmpp:avatar:data', data, [], []),
   Data = exmpp_xml:set_cdata(Data0, Base64),
   ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
   Item = exmpp_xml:element(undefined, item, [ItemAttr], [Data]),
+  publish_element(Item, State).
+
+-spec avatar_metadata_packet(binary(), binary(), #state{}) -> #xmlel{}.
+avatar_metadata_packet(Id, Bytes, State) ->
+  BytesAttr = exmpp_xml:attribute(<<"bytes">>, integer_to_list(Bytes)),
+  TypeAttr = exmpp_xml:attribute(<<"type">>, <<"image/png">>),
+  Info = exmpp_xml:element(undefined, info, [BytesAttr, TypeAttr], []),
+  Metadata = exmpp_xml:element('urn:xmpp:avatar:metadata', metadata, [], [Info]), 
+  ItemAttr = exmpp_xml:attribute(<<"id">>, Id),
+  Item = exmpp_xml:element(undefined, item, [ItemAttr], [Metadata]),
+  publish_element(Item, State).
+
+-spec publish_element(#xmlel{}, #state{}) -> #xmlel{}.
+publish_element(Item, #state{jid=Jid}) ->
   NodeAttr = exmpp_xml:attribute(<<"node">>, 'urn:xmpp:avatar:data'),
   Publish = exmpp_xml:element(undefined, publish, [NodeAttr], [Item]),
   PubSub = exmpp_xml:element('http://jabber.org/protocol/pubsub', pubsub, [], [Publish]),
-  %% Id should be something we generate instead of publish1
   FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
-  Iq0 = exmpp_iq:set(undefined, PubSub, 'publish1'),
-  Iq = exmpp_xml:set_attribute(Iq0, FromAttr),
-  Iq.
+  Iq0 = exmpp_iq:set(undefined, PubSub, 'publish2'),
+  exmpp_xml:set_attribute(Iq0, FromAttr).
 
 hexstring(<<X:128/big-unsigned-integer>>) ->
     lists:flatten(io_lib:format("~32.16.0b", [X]));

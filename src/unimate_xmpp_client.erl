@@ -16,6 +16,8 @@
 
 -define(SERVER, ?MODULE).
 
+-define(STATUS, <<"Ready">>).
+
 -record(state, {session,
                 jid :: #jid{},
                 broadcast_room_jid :: #jid{},
@@ -192,7 +194,7 @@ join_room(RoomJid = #jid{}, State=#state{session=Session}, Nick) ->
 room_presence(RoomJid = #jid{}, Nick) ->
   RoomBin = exmpp_jid:to_binary(RoomJid),
   To = exmpp_xml:attribute(<<"to">>, <<RoomBin/binary,"/",Nick/binary>>),
-  P0 = exmpp_presence:presence(available, <<"Ready">>),
+  P0 = exmpp_presence:presence(available, ?STATUS),
   exmpp_xml:set_attribute(P0, To).
 
 -spec add_room(#jid{}, #state{}) -> #state{}.
@@ -255,7 +257,7 @@ vcard_presence(Id) ->
   Photo0 = exmpp_xml:element(undefined, 'photo', [], []),
   Photo = exmpp_xml:set_cdata(Photo0, Id),
   X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo]),
-  Presence0 = exmpp_presence:presence(available, <<"Ready">>),
+  Presence0 = exmpp_presence:presence(available, ?STATUS),
   exmpp_xml:set_children(Presence0, [X]).
 
 hexstring(<<X:128/big-unsigned-integer>>) ->

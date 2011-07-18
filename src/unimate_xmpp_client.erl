@@ -183,10 +183,9 @@ join_room(RoomJid = #jid{}, State=#state{session=Session}, Nick) ->
 -spec room_presence(#jid{}, binary()) -> #xmlel{}.
 room_presence(RoomJid = #jid{}, Nick) ->
   RoomBin = exmpp_jid:to_binary(RoomJid),
-  To = #xmlattr{name = <<"to">>, value = <<RoomBin/binary,"/",Nick/binary>>},
-  XMLNSAttr = #xmlattr{name= <<"xmlns">>, value= <<"http://jabber.org/protocol/muc">>},
-  XMLNS = #xmlel{name=x, attrs=[XMLNSAttr]},
-  #xmlel{name=presence, attrs=[To], children=[XMLNS]}.
+  To = exmpp_xml:attribute(<<"to">>, <<RoomBin/binary,"/",Nick/binary>>),
+  P0 = exmpp_presence:presence(available, <<"Ready">>),
+  exmpp_xml:set_attribute(P0, To).
 
 -spec add_room(#jid{}, #state{}) -> #state{}.
 add_room(Jid, State=#state{rooms=Rooms}) ->

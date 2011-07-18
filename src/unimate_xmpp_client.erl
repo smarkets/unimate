@@ -131,6 +131,7 @@ handle_info(#received_packet{packet_type=message,
       case exmpp_xml:get_attribute_as_binary(Raw, <<"from">>, <<"unknown">>) of
         OurJidBin -> ok;
         From ->
+          send_chat_msg_to_jid(Msg, Jid, exmpp_jid:parse(From), State),
           error_logger:info_msg("~s: ~s", [From, Msg])
       end
   end,
@@ -165,12 +166,19 @@ send_groupchat_int(Msg, Room, State=#state{jid=Jid, broadcast_room_jid=BJid}) ->
   send_groupchat_msg_to_jid(Msg, Jid, ToJid, State).
 
 -spec send_groupchat_msg_to_jid(binary(), #jid{}, #jid{}, #state{}) -> ok.
-send_groupchat_msg_to_jid(Msg, FromJid, ToJid, #state{session=Session}) ->
+send_groupchat_msg_to_jid(Bin, FromJid, ToJid, State) ->
+  Msg = exmpp_message:groupchat(Bin),
+  send_packet_from_to(Msg, FromJid, ToJid, State).
+
+-spec send_chat_msg_to_jid(binary(), #jid{}, #jid{}, #state{}) -> ok.
+send_chat_msg_to_jid(Bin, FromJid, ToJid, State) ->
+  Msg = exmpp_message:chat(Bin),
+  send_packet_from_to(Msg, FromJid, ToJid, State).
+
+-spec send_packet_from_to(#xmlel{}, #jid{}, #jid{}, #state{}) -> ok.
+send_packet_from_to(Msg=#xmlel{}, FromJid, ToJid, #state{session=Session}) ->
   Packet = exmpp_stanza:set_sender(
-             exmpp_stanza:set_recipient(
-               exmpp_message:groupchat(Msg),
-               ToJid),
-             FromJid),
+             exmpp_stanza:set_recipient(Msg, ToJid), FromJid),
   exmpp_session:send_packet(Session, Packet),
   ok.
 
@@ -221,7 +229,7 @@ send_avatar(Filename, State=#state{session=Session}) ->
       Base64 = base64:encode(Bin),
       Id = hexstring(crypto:sha(Bin)),
       VCardPacket = vcard_packet(Base64, State),
-      VCardPresence = vcard_presence(Id, State),
+      VCardPresence = vcard_presence(Id),
       exmpp_session:send_packet(Session, VCardPacket),
       exmpp_session:send_packet(Session, VCardPresence),
       ok;
@@ -242,8 +250,8 @@ vcard_packet(Base64, #state{jid=Jid}) ->
   Iq0 = exmpp_iq:set(undefined, VCard, 'vc1'),
   exmpp_xml:set_attribute(Iq0, FromAttr).
 
--spec vcard_presence(binary(), #state{}) -> #xmlel{}.
-vcard_presence(Id, #state{jid=Jid}) ->
+-spec vcard_presence(binary()) -> #xmlel{}.
+vcard_presence(Id) ->
   Photo0 = exmpp_xml:element(undefined, 'photo', [], []),
   Photo = exmpp_xml:set_cdata(Photo0, Id),
   X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo]),

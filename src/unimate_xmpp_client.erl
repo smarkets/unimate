@@ -96,6 +96,9 @@ init([]) ->
             end,
             State1,
             Rooms),
+  %% Send an avatar to the server if one exists in our priv dir
+  Filename = filename:join([code:priv_dir(unimate), "avatar.png"]),
+  send_avatar(Filename, State2),
   {ok, State2}.
 
 
@@ -131,6 +134,9 @@ handle_info(#received_packet{packet_type=message,
           error_logger:info_msg("~s: ~s", [From, Msg])
       end
   end,
+  {noreply, State};
+handle_info(Packet = #received_packet{packet_type=presence}, State) ->
+  ok = handle_presence(Packet, State),
   {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
@@ -191,3 +197,65 @@ add_room(Jid, State=#state{rooms=Rooms}) ->
 -spec get_room(binary(), #state{}) -> #jid{} | not_found.
 get_room(Room, #state{rooms=Rooms}) ->
   proplists:get_value(Room, Rooms, not_found).
+
+-spec handle_presence(#received_packet{}, #state{}) -> ok.
+handle_presence(#received_packet{from=From, type_attr="subscribe"},
+                #state{jid=Jid, session=Session}) ->
+  case exmpp_jid:make(From) of
+    Jid ->
+      ok;
+    FromJid ->
+      Subscribed = exmpp_stanza:set_recipient(exmpp_presence:subscribed(), FromJid),
+      exmpp_session:send_packet(Session, Subscribed),
+      Subscribe = exmpp_stanza:set_recipient(exmpp_presence:subscribe(), FromJid),
+      exmpp_session:send_packet(Session, Subscribe),
+      ok
+  end;
+handle_presence(_, _) ->
+  ok.
+
+-spec send_avatar(string(), #state{}) -> ok.
+send_avatar(Filename, State=#state{session=Session}) ->
+  case file:read_file_info(Filename) of
+    {ok, _} ->
+      {ok, Bin} = file:read_file(Filename),
+      Base64 = base64:encode(Bin),
+      Id = hexstring(crypto:sha(Bin)),
+      VCardPacket = vcard_packet(Base64, State),
+      VCardPresence = vcard_presence(Id, State),
+      exmpp_session:send_packet(Session, VCardPacket),
+      exmpp_session:send_packet(Session, VCardPresence),
+      ok;
+    {error, Reason} ->
+      error_logger:info_msg("Failed to read avatar: ~p - ~p", [Filename, Reason]),
+      ok
+  end.
+
+-spec vcard_packet(binary(), #state{}) -> #xmlel{}.
+vcard_packet(Base64, #state{jid=Jid}) ->
+  Binval0 = exmpp_xml:element(undefined, 'BINVAL', [], []),
+  Binval = exmpp_xml:set_cdata(Binval0, Base64),
+  Type0 = exmpp_xml:element(undefined, 'TYPE', [], []),
+  Type = exmpp_xml:set_cdata(Type0, <<"image/png">>),
+  Photo = exmpp_xml:element(undefined, 'PHOTO', [], [Type, Binval]),
+  VCard = exmpp_xml:element('vcard-temp', 'vCard', [], [Photo]),
+  FromAttr = exmpp_xml:attribute(<<"from">>, exmpp_jid:to_binary(Jid)),
+  Iq0 = exmpp_iq:set(undefined, VCard, 'vc1'),
+  exmpp_xml:set_attribute(Iq0, FromAttr).
+
+-spec vcard_presence(binary(), #state{}) -> #xmlel{}.
+vcard_presence(Id, #state{jid=Jid}) ->
+  Photo0 = exmpp_xml:element(undefined, 'photo', [], []),
+  Photo = exmpp_xml:set_cdata(Photo0, Id),
+  X = exmpp_xml:element('vcard-temp:x:update', 'x', [], [Photo]),
+  Presence0 = exmpp_presence:presence(available, <<"Ready">>),
+  exmpp_xml:set_children(Presence0, [X]).
+
+hexstring(<<X:128/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~32.16.0b", [X]));
+hexstring(<<X:160/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~40.16.0b", [X]));
+hexstring(<<X:256/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~64.16.0b", [X]));
+hexstring(<<X:512/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~128.16.0b", [X])).

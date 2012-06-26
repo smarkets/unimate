@@ -1,15 +1,15 @@
-.PHONY: rel deps dev debug
+DEPS_DIR=deps
+DEPS=${DEPS_DIR}/exmpp
+
+.PHONY: rel dev debug
 
 all: compile
 
-compile:
+compile: ${DEPS}
 	./rebar compile
 
 clean:
 	./rebar clean
-
-deps:
-	./rebar get-deps
 
 depsclean:
 	./rebar delete-deps get-deps
@@ -17,10 +17,13 @@ depsclean:
 depsupdate:
 	./rebar update-deps
 
+${DEPS}: rebar.config
+	./rebar get-deps
+
 test:
 	./rebar skip_deps=true eunit
 
-rel: deps
+rel: ${DEPS}
 	./rebar compile generate
 
 relclean:

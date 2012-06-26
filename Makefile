@@ -1,5 +1,5 @@
 DEPS_DIR=deps
-DEPS=${DEPS_DIR}/exmpp
+DEPS=${DEPS_DIR}/exmpp ${DEPS_DIR}/lager
 
 .PHONY: rel dev debug
 

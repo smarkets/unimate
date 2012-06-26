@@ -3,6 +3,8 @@
 
 -behaviour(gen_server).
 
+-compile([{parse_transform, lager_transform}]).
+
 -include_lib("exmpp/include/exmpp.hrl").
 -include_lib("exmpp/include/exmpp_client.hrl").
 -include_lib("exmpp/include/exmpp_jid.hrl").
@@ -49,6 +51,7 @@ is_room(Room) when is_binary(Room) ->
 %%%===================================================================
 
 init([]) ->
+  lager:debug("entering unimate_xmpp_client:init"),
   {ok, Port} = application:get_env(jabber_port),
   {ok, Server} = application:get_env(jabber_server),
   ServerIp =
@@ -72,6 +75,7 @@ init([]) ->
   {ok, ConferenceServer} = application:get_env(conference_server),
   {ok, BroadcastRoom} = application:get_env(broadcast_room),
   {ok, Rooms} = application:get_env(rooms),
+  lager:info("xmpp_client connecting to server ~p (~p:~p, ssl: ~p)", [Server, ServerIp, Port, UseSsl]),
   Session = exmpp_session:start(),
   Jid = exmpp_jid:make(User, Server, Resource),
   exmpp_session:auth_basic_digest(Session, Jid, Password),

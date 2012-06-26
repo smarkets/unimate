@@ -1,7 +1,7 @@
 {application, unimate,
  [
   {description, "Unimate Jabber Bot"},
-  {vsn, "20110715"},
+  {vsn, "20120626"},
   {registered, []},
   {applications, [
                   kernel,
@@ -9,7 +9,8 @@
                   crypto,
                   ssl,
                   public_key,
-                  exmpp
+                  exmpp,
+                  lager
                  ]},
   {mod, { unimate_app, []}},
   {env, []}

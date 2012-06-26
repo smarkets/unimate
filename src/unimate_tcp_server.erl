@@ -1,6 +1,9 @@
+%% -*- erlang-indent-level: 2 -*-
 -module(unimate_tcp_server).
 
 -behaviour(gen_nb_server).
+
+-compile([{parse_transform, lager_transform}]).
 
 %% API
 -export([start_link/0]).
@@ -16,6 +19,7 @@
 start_link() ->
   {ok, IpAddr} = application:get_env(listen_ip),
   {ok, Port} = application:get_env(listen_port),
+  lager:info("starting gen_nb_server on ~p/~p", [IpAddr, Port]),
   gen_nb_server:start_link(?MODULE, IpAddr, Port, []).
 
 sock_opts() ->

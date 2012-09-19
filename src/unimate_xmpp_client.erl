@@ -160,6 +160,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+-spec wrap_html_body(binary()) -> xmlel().
+wrap_html_body(Bin) ->
+  Parser = exmpp_xml:start_parser(),
+  exmpp_xml:parse(Parser, "<html xmlns='http://jabber.org/protocol/xhtml-im'>"),
+  exmpp_xml:parse(Parser, "<body xmlns='http://www.w3.org/1999/xhtml'>"),
+  exmpp_xml:parse(Parser, Bin),
+  exmpp_xml:parse_final(Parser, "</body></html>").
+
 -spec send_groupchat_int(binary(), binary(), #state{}) -> ok.
 send_groupchat_int(Msg, Room, State=#state{jid=Jid, broadcast_room_jid=BJid}) ->
   ToJid =
@@ -173,12 +181,12 @@ send_groupchat_int(Msg, Room, State=#state{jid=Jid, broadcast_room_jid=BJid}) ->
 
 -spec send_groupchat_msg_to_jid(binary(), #jid{}, #jid{}, #state{}) -> ok.
 send_groupchat_msg_to_jid(Bin, FromJid, ToJid, State) ->
-  Msg = exmpp_message:groupchat(Bin),
+  Msg = exmpp_xml:append_child(exmpp_message:groupchat(Bin), wrap_html_body(Bin)),
   send_packet_from_to(Msg, FromJid, ToJid, State).
 
 -spec send_chat_msg_to_jid(binary(), #jid{}, #jid{}, #state{}) -> ok.
 send_chat_msg_to_jid(Bin, FromJid, ToJid, State) ->
-  Msg = exmpp_message:chat(Bin),
+  Msg = exmpp_xml:append_child(exmpp_message:chat(Bin), wrap_html_body(Bin)),
   send_packet_from_to(Msg, FromJid, ToJid, State).
 
 -spec send_packet_from_to(#xmlel{}, #jid{}, #jid{}, #state{}) -> ok.

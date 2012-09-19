@@ -12,7 +12,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 -export([terminate/2, code_change/3, sock_opts/0, new_connection/2]).
 
--define(SOCKET_OPTS, [binary, {packet, 0}, {active, false}]).
+-define(SOCKET_OPTS, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]).
 
 -record(state, {}).
 

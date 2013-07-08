@@ -163,14 +163,16 @@ code_change(_OldVsn, State, _Extra) ->
 -spec wrap_html_body(binary(), fun()) -> xmlel().
 wrap_html_body(Bin, Plaintype) ->
   Parser = exmpp_xml:start_parser(),
-  try 
+  Result = try 
     exmpp_xml:parse(Parser, "<html xmlns='http://jabber.org/protocol/xhtml-im'>"),
     exmpp_xml:parse(Parser, "<body xmlns='http://www.w3.org/1999/xhtml'>"),
     exmpp_xml:parse(Parser, Bin),
     exmpp_xml:append_child(Plaintype(Bin), exmpp_xml:parse_final(Parser, "</body></html>"))
   catch
     throw:_ -> Plaintype(Bin)
-  end.
+  end,
+  exmpp_xml:stop_parser(Parser),
+  Result.
 
 -spec send_groupchat_int(binary(), binary(), #state{}) -> ok.
 send_groupchat_int(Msg, Room, State=#state{jid=Jid, broadcast_room_jid=BJid}) ->

@@ -25,4 +25,4 @@ start_link() ->
 init([]) ->
   TCPServer = ?CHILD(unimate_tcp_server, worker),
   XMPPClient = ?CHILD(unimate_xmpp_client, worker),
-  {ok, { {one_for_one, 5, 10}, [XMPPClient, TCPServer]} }.
+  {ok, { {one_for_all, 5, 10}, [XMPPClient, TCPServer]} }.
